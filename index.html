@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Pocket Ledger — Expense & Budget Visualizer</title>
+    <meta name="description"
+        content="Lacak pengeluaran harianmu, lihat sisa saldo, dan pantau distribusi belanja per kategori." />
+    <meta name="theme-color" content="#2F6F5E" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+</head>
+
+<body>
+
+    <div class="app">
+
+        <!-- Header: balance + theme toggle -->
+        <header class="balance-bar">
+            <div class="balance-bar__glow"></div>
+            <div class="balance-bar__top">
+                <div class="brand">
+                    <span class="brand__icon">💰</span>
+                    <span class="app-name">Pocket Ledger</span>
+                </div>
+                <button id="themeToggle" class="icon-btn" type="button" aria-label="Ganti tema terang/gelap"
+                    title="Ganti tema">
+                    <svg id="iconSun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4.5" />
+                        <g stroke-linecap="round">
+                            <line x1="12" y1="1.5" x2="12" y2="4" />
+                            <line x1="12" y1="20" x2="12" y2="22.5" />
+                            <line x1="1.5" y1="12" x2="4" y2="12" />
+                            <line x1="20" y1="12" x2="22.5" y2="12" />
+                            <line x1="4.4" y1="4.4" x2="6.1" y2="6.1" />
+                            <line x1="17.9" y1="17.9" x2="19.6" y2="19.6" />
+                            <line x1="4.4" y1="19.6" x2="6.1" y2="17.9" />
+                            <line x1="17.9" y1="6.1" x2="19.6" y2="4.4" />
+                        </g>
+                    </svg>
+                    <svg id="iconMoon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"
+                        style="display:none">
+                        <path d="M20.5 14.7A8.5 8.5 0 1 1 9.3 3.5a7 7 0 0 0 11.2 11.2z" />
+                    </svg>
+                </button>
+            </div>
+
+            <p class="balance-bar__label" id="balanceLabel">Total pengeluaran</p>
+            <p class="balance-bar__amount" id="totalBalance">Rp 0</p>
+
+            <!-- Budget progress bar -->
+            <div class="budget-progress" id="budgetProgress" hidden>
+                <div class="budget-progress__bar">
+                    <div class="budget-progress__fill" id="budgetProgressFill"></div>
+                </div>
+            </div>
+
+            <div class="budget-row">
+                <label for="budgetInput" class="budget-row__label">Batas bulanan</label>
+                <div class="budget-row__input">
+                    <span>Rp</span>
+                    <input type="text" id="budgetInput" inputmode="numeric" placeholder="Opsional" />
+                </div>
+            </div>
+            <p class="budget-status" id="budgetStatus"></p>
+        </header>
+
+        <main>
+
+            <!-- Chart section -->
+            <section class="panel panel--chart" aria-labelledby="chartHeading">
+                <h2 id="chartHeading" class="panel__title">
+                    <span class="panel__icon">📊</span> Distribusi belanja
+                </h2>
+                <div class="chart-wrap">
+                    <canvas id="categoryChart" width="200" height="200" role="img"
+                        aria-label="Diagram lingkaran distribusi pengeluaran per kategori"></canvas>
+                    <div id="chartEmpty" class="chart-empty">
+                        <div class="chart-empty__icon">📉</div>
+                        <p>Belum ada transaksi untuk ditampilkan.</p>
+                    </div>
+                </div>
+                <ul id="chartLegend" class="legend"></ul>
+            </section>
+
+            <!-- Add transaction form -->
+            <section class="panel" aria-labelledby="formHeading">
+                <h2 id="formHeading" class="panel__title">
+                    <span class="panel__icon">✏️</span> Tambah transaksi
+                </h2>
+
+                <form id="transactionForm" class="form" novalidate>
+                    <div class="field">
+                        <label for="itemName">Nama item</label>
+                        <input type="text" id="itemName" name="itemName" placeholder="Misal: Makan siang"
+                            autocomplete="off" maxlength="60" />
+                        <span class="field__error" id="errorName"></span>
+                    </div>
+
+                    <div class="field">
+                        <label for="itemAmount">Jumlah (Rp)</label>
+                        <input type="text" id="itemAmount" name="itemAmount" placeholder="0" inputmode="numeric"
+                            autocomplete="off" />
+                        <span class="field__error" id="errorAmount"></span>
+                    </div>
+
+                    <div class="field">
+                        <label for="itemCategory">Kategori</label>
+                        <select id="itemCategory" name="itemCategory">
+                            <option value="" disabled selected>Pilih kategori</option>
+                        </select>
+                        <span class="field__error" id="errorCategory"></span>
+                    </div>
+
+                    <div class="field field--custom-category" id="customCategoryField" hidden>
+                        <label for="customCategoryInput">Nama kategori baru</label>
+                        <div class="custom-category-row">
+                            <input type="text" id="customCategoryInput" placeholder="Misal: Belanja Rumah"
+                                autocomplete="off" maxlength="20" />
+                            <button type="button" id="saveCustomCategory" class="btn btn--ghost">Tambah</button>
+                        </div>
+                        <span class="field__error" id="errorCustomCategory"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn--primary">
+                        <span class="btn__icon">＋</span> Catat transaksi
+                    </button>
+                </form>
+            </section>
+
+            <!-- Transaction list -->
+            <section class="panel panel--list" aria-labelledby="listHeading">
+                <div class="panel__header">
+                    <h2 id="listHeading" class="panel__title">
+                        <span class="panel__icon">🧾</span> Riwayat
+                    </h2>
+                    <div class="sort-control">
+                        <label for="sortSelect" class="sr-only">Urutkan transaksi</label>
+                        <select id="sortSelect">
+                            <option value="newest">Terbaru</option>
+                            <option value="oldest">Terlama</option>
+                            <option value="amount-desc">Jumlah: Tinggi → Rendah</option>
+                            <option value="amount-asc">Jumlah: Rendah → Tinggi</option>
+                            <option value="category">Kategori (A–Z)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <ul id="transactionList" class="transaction-list"></ul>
+                <div id="listEmpty" class="list-empty">
+                    <div class="list-empty__icon">🗒️</div>
+                    <p>Belum ada transaksi.</p>
+                    <p class="list-empty__hint">Yuk, catat yang pertama!</p>
+                </div>
+            </section>
+
+        </main>
+
+        <footer class="footer">
+            <p>🔒 Data tersimpan di perangkatmu saja, lewat Local Storage browser.</p>
+        </footer>
+    </div>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <!-- Delete confirmation modal -->
+    <div id="confirmModal" class="modal" hidden>
+        <div class="modal__backdrop"></div>
+        <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+            <h3 id="confirmTitle" class="modal__title">Hapus transaksi?</h3>
+            <p class="modal__message" id="confirmMessage">Transaksi ini akan dihapus permanen.</p>
+            <div class="modal__actions">
+                <button type="button" class="btn btn--ghost" id="confirmCancel">Batal</button>
+                <button type="button" class="btn btn--danger" id="confirmOk">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
